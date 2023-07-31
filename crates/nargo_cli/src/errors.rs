@@ -3,9 +3,10 @@ use acvm::{
     SmartContract,
 };
 use hex::FromHexError;
-use nargo::NargoError;
+use nargo::{package::CrateType, NargoError};
 use noirc_abi::errors::{AbiError, InputParserError};
 use noirc_errors::reporter::ReportedErrors;
+use noirc_frontend::graph::CrateName;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -89,11 +90,17 @@ pub(crate) enum ManifestError {
     #[error("cannot find a Nargo.toml in {}", .0.display())]
     MissingFile(PathBuf),
 
-    #[error("Cannot read file {0}. Does it exist?")]
+    #[error("Cannot read file {0} - does it exist?")]
     ReadFailed(PathBuf),
 
     #[error("Nargo.toml is missing a parent directory")]
     MissingParent,
+
+    #[error("Missing `type` field in {0}")]
+    MissingCrateType(PathBuf),
+
+    #[error("Invalid `type` field ({1}) in {0}")]
+    InvalidCrateType(PathBuf, String),
 
     /// Package manifest is unreadable.
     #[error("Nargo.toml is badly formed, could not parse.\n\n {0}")]
@@ -102,17 +109,8 @@ pub(crate) enum ManifestError {
     #[error("Unxpected workspace definition found in {0}")]
     UnexpectedWorkspace(PathBuf),
 
-    /// Package does not contain Noir source files.
-    #[error("cannot find src directory in path {0}")]
-    NoSourceDir(PathBuf),
-
-    /// Package has neither of `main.nr` and `lib.nr`.
-    #[error("package must contain either a `lib.nr`(Library) or a `main.nr`(Binary).")]
-    ContainsZeroCrates,
-
-    /// Package has both a `main.nr` (for binaries) and `lib.nr` (for libraries)
-    #[error("package cannot contain both a `lib.nr` and a `main.nr`")]
-    ContainsMultipleCrates,
+    #[error("Cannot find file {0} which is required due to specifying the `{1}` crate type")]
+    MissingEntryFile(PathBuf, CrateType),
 
     /// Invalid character `-` in package name
     #[error("invalid character `-` in package name")]
@@ -127,4 +125,7 @@ pub(crate) enum ManifestError {
 
     #[error("Default package was not found. Does {0} exist in your workspace?")]
     MissingDefaultPackage(PathBuf),
+
+    #[error("`{0}` has crate type `bin` but you cannot depend on binary crates")]
+    BinaryDependency(CrateName),
 }

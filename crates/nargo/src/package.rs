@@ -1,13 +1,45 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, fmt::Display, path::PathBuf};
 
-use noirc_frontend::graph::{CrateName, CrateType};
+use noirc_frontend::graph::CrateName;
+use serde::Deserialize;
 
 use crate::constants::{PROVER_INPUT_FILE, VERIFIER_INPUT_FILE};
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum CrateType {
+    Library,
+    Binary,
+}
+
+impl Display for CrateType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Library => write!(f, "lib"),
+            Self::Binary => write!(f, "bin"),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum Dependency {
     Local { package: Package },
     Remote { package: Package },
+}
+
+impl Dependency {
+    pub fn is_binary_crate(&self) -> bool {
+        match self {
+            Self::Local { package } | Self::Remote { package } => {
+                package.crate_type == CrateType::Binary
+            }
+        }
+    }
+
+    pub fn package_name(&self) -> CrateName {
+        match self {
+            Self::Local { package } | Self::Remote { package } => package.name.clone(),
+        }
+    }
 }
 
 #[derive(Clone)]

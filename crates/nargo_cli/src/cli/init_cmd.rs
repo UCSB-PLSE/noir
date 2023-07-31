@@ -41,9 +41,11 @@ pub(crate) fn initialize_project(package_dir: PathBuf) {
     let src_dir = package_dir.join(SRC_DIR);
     create_named_dir(&src_dir, "src");
 
+    // TODO: Need to make type configurable
     let toml_contents = format!(
         r#"[package]
 name = "{package_name}"
+type = "bin"
 authors = [""]
 compiler_version = "{CARGO_PKG_VERSION}"
 

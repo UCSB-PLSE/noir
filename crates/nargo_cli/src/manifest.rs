@@ -3,8 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use fm::{normalize_path, FILE_EXTENSION};
 use nargo::{
-    package::{Dependency, Package},
+    package::{CrateType, Dependency, Package},
     workspace::Workspace,
 };
 use noirc_frontend::graph::CrateName;
@@ -30,9 +31,34 @@ impl PackageConfig {
             dependencies.insert(name, resolved_dep);
         }
 
-        let (entry_path, crate_type) = crate::lib_or_bin(root_dir)?;
+        let crate_type = match self.package.crate_type.as_deref() {
+            Some("lib") => CrateType::Library,
+            Some("bin") => CrateType::Binary,
+            Some(invalid) => {
+                return Err(ManifestError::InvalidCrateType(
+                    root_dir.join("Nargo.toml"),
+                    invalid.to_string(),
+                ))
+            }
+            None => return Err(ManifestError::MissingCrateType(root_dir.join("Nargo.toml"))),
+        };
 
-        Ok(Package { root_dir: root_dir.to_path_buf(), entry_path, crate_type, name, dependencies })
+        let entry_path = match crate_type {
+            CrateType::Library => root_dir.join("src").join("lib").with_extension(FILE_EXTENSION),
+            CrateType::Binary => root_dir.join("src").join("main").with_extension(FILE_EXTENSION),
+        };
+
+        if entry_path.exists() {
+            Ok(Package {
+                root_dir: root_dir.to_path_buf(),
+                entry_path,
+                crate_type,
+                name,
+                dependencies,
+            })
+        } else {
+            Err(ManifestError::MissingEntryFile(entry_path, crate_type))
+        }
     }
 }
 
@@ -88,6 +114,8 @@ struct WorkspaceConfig {
 struct PackageMetadata {
     #[serde(default = "panic_missing_name")]
     name: String,
+    #[serde(alias = "type")]
+    crate_type: Option<String>,
     description: Option<String>,
     authors: Option<Vec<String>>,
     // If not compiler version is supplied, the latest is used
@@ -131,19 +159,27 @@ enum DependencyConfig {
 
 impl DependencyConfig {
     fn resolve_to_dependency(&self, pkg_root: &Path) -> Result<Dependency, ManifestError> {
-        match self {
+        let dep = match self {
             Self::Github { git, tag } => {
                 let dir_path = clone_git_repo(git, tag).map_err(ManifestError::GitError)?;
                 let toml_path = dir_path.join("Nargo.toml");
                 let package = resolve_package_from_toml(&toml_path)?;
-                Ok(Dependency::Remote { package })
+                Dependency::Remote { package }
             }
             Self::Path { path } => {
                 let dir_path = pkg_root.join(path);
                 let toml_path = dir_path.join("Nargo.toml");
                 let package = resolve_package_from_toml(&toml_path)?;
-                Ok(Dependency::Local { package })
+                Dependency::Local { package }
             }
+        };
+
+        // Cannot depend on a binary
+        // TODO: Can we depend upon contracts?
+        if dep.is_binary_crate() {
+            Err(ManifestError::BinaryDependency(dep.package_name()))
+        } else {
+            Ok(dep)
         }
     }
 }
@@ -208,7 +244,8 @@ fn toml_to_workspace(
 }
 
 fn read_toml(toml_path: &Path) -> Result<NargoToml, ManifestError> {
-    let toml_as_string = std::fs::read_to_string(toml_path)
+    let toml_path = normalize_path(toml_path);
+    let toml_as_string = std::fs::read_to_string(&toml_path)
         .map_err(|_| ManifestError::ReadFailed(toml_path.to_path_buf()))?;
     let root_dir = toml_path.parent().ok_or(ManifestError::MissingParent)?;
     let nargo_toml =
