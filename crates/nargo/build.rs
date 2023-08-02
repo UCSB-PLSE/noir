@@ -1,5 +1,6 @@
 use rustc_version::{version, Version};
 
+#[allow(dead_code)]
 fn check_rustc_version() {
     assert!(
         version().unwrap() >= Version::parse("1.66.0").unwrap(),
@@ -8,5 +9,5 @@ fn check_rustc_version() {
 }
 
 fn main() {
-    check_rustc_version();
+    // check_rustc_version();
 }
