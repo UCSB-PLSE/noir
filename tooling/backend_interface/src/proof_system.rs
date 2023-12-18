@@ -5,6 +5,7 @@ use std::path::Path;
 use acvm::acir::{circuit::Circuit, native_types::WitnessMap};
 use acvm::FieldElement;
 use acvm::Language;
+use ark_std::{end_timer, start_timer};
 use tempfile::tempdir;
 
 use crate::cli::{
@@ -54,6 +55,7 @@ impl Backend {
         witness_values: WitnessMap,
         is_recursive: bool,
     ) -> Result<Vec<u8>, BackendError> {
+        let prove_time = start_timer!(|| "Proving");
         let binary_path = self.assert_binary_exists()?;
         self.assert_correct_version()?;
 
@@ -85,6 +87,7 @@ impl Backend {
             circuit.public_inputs().0.len(),
             &proof_with_public_inputs,
         );
+        end_timer!(prove_time);
         Ok(proof)
     }
 
@@ -95,6 +98,7 @@ impl Backend {
         circuit: &Circuit,
         is_recursive: bool,
     ) -> Result<bool, BackendError> {
+        let verify_time = start_timer!(|| "Verifying");
         let binary_path = self.assert_binary_exists()?;
         self.assert_correct_version()?;
 
@@ -123,8 +127,12 @@ impl Backend {
         .run(binary_path)?;
 
         // Verify the proof
-        VerifyCommand { crs_path: self.crs_directory(), is_recursive, proof_path, vk_path }
-            .run(binary_path)
+        let result =
+            VerifyCommand { crs_path: self.crs_directory(), is_recursive, proof_path, vk_path }
+                .run(binary_path);
+
+        end_timer!(verify_time);
+        result
     }
 
     pub fn get_intermediate_proof_artifacts(

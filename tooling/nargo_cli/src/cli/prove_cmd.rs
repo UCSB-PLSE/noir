@@ -109,6 +109,9 @@ pub(crate) fn prove_package(
         Format::Toml,
     )?;
 
+    let c_size = backend.get_exact_circuit_size(&compiled_program.circuit)?;
+    println!("Circuit size: {}", c_size);
+
     let proof = backend.prove(&compiled_program.circuit, solved_witness, false)?;
 
     if check_proof {
