@@ -2,6 +2,7 @@ use acvm::ProofSystemCompiler;
 use noirc_driver::{CompiledProgram, ContractFunction};
 
 use crate::artifacts::{contract::PreprocessedContractFunction, program::PreprocessedProgram};
+use crate::{end_timer, start_timer};
 
 // TODO(#1388): pull this from backend.
 const BACKEND_IDENTIFIER: &str = "acvm-backend-barretenberg";
@@ -16,6 +17,8 @@ pub fn preprocess_program<B: ProofSystemCompiler>(
     // In future we'll need to apply those optimizations here.
     let optimized_bytecode = compiled_program.circuit;
 
+    let pp_time = start_timer!(|| "Preprocess Program");
+
     let (proving_key, verification_key) = if include_keys {
         let (proving_key, verification_key) =
             backend.preprocess(common_reference_string, &optimized_bytecode)?;
@@ -23,6 +26,7 @@ pub fn preprocess_program<B: ProofSystemCompiler>(
     } else {
         (None, None)
     };
+    end_timer!(pp_time);
 
     Ok(PreprocessedProgram {
         backend: String::from(BACKEND_IDENTIFIER),

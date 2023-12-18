@@ -1,3 +1,4 @@
+use crate::{end_timer, start_timer};
 use acvm::acir::{circuit::Circuit, native_types::WitnessMap};
 use acvm::ProofSystemCompiler;
 
@@ -9,13 +10,16 @@ pub fn verify_proof<B: ProofSystemCompiler>(
     public_inputs: WitnessMap,
     verification_key: &[u8],
 ) -> Result<bool, B::Error> {
+    let verify_time = start_timer!(|| "Verifying");
     // TODO(#1569): update from not just accepting `false` once we get nargo to interop with dynamic backend
-    backend.verify_with_vk(
+    let result = backend.verify_with_vk(
         common_reference_string,
         proof,
         public_inputs,
         circuit,
         verification_key,
         false,
-    )
+    );
+    end_timer!(verify_time);
+    result
 }

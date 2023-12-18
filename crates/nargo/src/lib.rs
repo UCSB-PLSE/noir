@@ -11,5 +11,6 @@ pub mod artifacts;
 mod errors;
 pub mod manifest;
 pub mod ops;
+mod perf_trace;
 
 pub use self::errors::NargoError;

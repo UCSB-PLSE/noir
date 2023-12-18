@@ -25,6 +25,7 @@ rust-version = "1.66"
 
 [workspace.dependencies]
 acvm = "0.18.1"
+acvm_backend_barretenberg = { git = "https://github.com/noir-lang/acvm-backend-barretenberg", package = "acvm-backend-barretenberg", tag = "v0.8.0" }
 arena = { path = "crates/arena" }
 fm = { path = "crates/fm" }
 iter-extended = { path = "crates/iter-extended" }
